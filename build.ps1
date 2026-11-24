@@ -69,11 +69,15 @@ edge-tts
 https://github.com/rany2/edge-tts
 '@
     [IO.File]::WriteAllText((Join-Path $replayLicenses '组件来源.txt'), $replayComponents, [Text.UTF8Encoding]::new($true))
-    $replayQuickStart = @'
-回放工坊 · Windows x64
+    $replayVersionFile = Join-Path $PSScriptRoot 'replaystudio\version.py'
+    $replayVersionText = [IO.File]::ReadAllText($replayVersionFile, [Text.Encoding]::UTF8)
+    $replayVersionMatch = [regex]::Match($replayVersionText, 'APP_VERSION\s*=\s*"([^"]+)"')
+    $replayVersion = if ($replayVersionMatch.Success) { $replayVersionMatch.Groups[1].Value } else { '1.0.0' }
+    $replayQuickStart = @"
+回放工坊 v$replayVersion · Windows x64
 
 1. 完整解压到任意文件夹，双击 ReplayStudio.exe。
-2. 在左上角「设置」中导入 UTF-8 TXT 或 DOCX 跑团日志、打开工程或切换界面色调。也可直接拖入日志文件。
+2. 在左上角「设置」中导入 UTF-8 TXT 或 DOCX 跑团日志、打开工程、切换界面色调或手动检查更新。也可直接拖入日志文件。
 3. 在「台词」工作台编辑台词、角色、模板与战斗面板。
 4. 切换到「剪辑」，导入图片、音乐和音效并拖到对应轨道。点击左侧轨道名可拖动调整顺序或右键改名、复制、删除；点击独立台词块可定位，右侧「书签管理」可跳到书签。
 5. 切换到「声音」，为各角色和旁白选择静音、离线 UT 对话音效或免费 AI 人声，也可点「API 接口…」接入本机或云端部署的语音服务。
@@ -81,7 +85,7 @@ https://github.com/rany2/edge-tts
 7. 在「设置」中选择「导出 MP4」。需要导出片段时，先用「标记起点」和「标记终点」选好范围。
 
 请把 ReplayStudio.exe 和同目录的 _internal 文件夹放在一起。
-'@
+"@
     [IO.File]::WriteAllText((Join-Path $replayBundle '使用说明.txt'), $replayQuickStart, [Text.UTF8Encoding]::new($true))
 
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
@@ -90,7 +94,10 @@ https://github.com/rany2/edge-tts
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [IO.Compression.ZipFile]::CreateFromDirectory($replayBundle, $replayStagedZip, [IO.Compression.CompressionLevel]::Optimal, $true)
     Move-Item -LiteralPath $replayStagedZip -Destination $replayOutput -Force
-    Get-Item -LiteralPath $replayOutput | Select-Object FullName, Length
+    $replayHash = (Get-FileHash -LiteralPath $replayOutput -Algorithm SHA256).Hash.ToLowerInvariant()
+    $replayChecksumFile = Join-Path $OutputDirectory 'SHA256SUMS.txt'
+    [IO.File]::WriteAllText($replayChecksumFile, "$replayHash  回放工坊-Windows-x64.zip`n", [Text.UTF8Encoding]::new($false))
+    Get-Item -LiteralPath $replayOutput, $replayChecksumFile | Select-Object FullName, Length
 }
 finally {
     if ($replayStagedZip -and (Test-Path -LiteralPath $replayStagedZip)) {

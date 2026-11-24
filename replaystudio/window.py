@@ -21,6 +21,9 @@ from .media_editor import MediaEditor
 from .model import FPS, MAX_MEDIA_FRAME, Project, ReplayError, project_from_log
 from .render import Timeline, build_timeline, initialize_media
 from .storage import PROJECT_SUFFIX, open_project, save_project
+from .update_dialog import UpdateDialog
+from .updater import launch_windows_updater
+from .version import APP_VERSION
 from .voice_editor import VoiceEditor
 from .widgets import CueFilter, CueModel, Stage, app_icon, button, panel, timecode
 
@@ -111,6 +114,7 @@ class MainWindow(QMainWindow):
         self._period_summary = ""
         self._guides = False
         self._tracks_height = 452
+        self._applying_update = False
 
         self.update_timer = QTimer(self)
         self.update_timer.setSingleShot(True)
@@ -263,6 +267,8 @@ class MainWindow(QMainWindow):
             group.addAction(action)
             action.setChecked(key == current)
         group.triggered.connect(lambda action: apply_tone(QApplication.instance(), action.data(), remember=True))
+        menu.addSeparator()
+        self.update_action = menu.addAction(f"检查更新（v{APP_VERSION}）", self._check_update)
         control.setMenu(menu)
         return control
 
@@ -1091,8 +1097,35 @@ class MainWindow(QMainWindow):
             event.acceptProposedAction()
             self.load_path(Path(urls[0].toLocalFile()))
 
-    def closeEvent(self, event):
+    def _check_update(self) -> None:
+        dialog = UpdateDialog(self)
+        accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        staged = dialog.staged_bundle
+        target = dialog.install_target
+        dialog.deleteLater()
+        if not accepted or staged is None or target.directory is None:
+            return
+        bundle_root, staging_dir = staged
         if not self._confirm_replace():
+            import shutil
+            shutil.rmtree(staging_dir, ignore_errors=True)
+            self._status("已取消应用更新")
+            return
+        try:
+            launch_windows_updater(
+                target_dir=target.directory,
+                source_dir=bundle_root,
+                staging_dir=staging_dir,
+                reopen_file=self.project_file,
+            )
+        except OSError as error:
+            QMessageBox.warning(self, "无法启动更新程序", str(error))
+            return
+        self._applying_update = True
+        self.close()
+
+    def closeEvent(self, event):
+        if not self._applying_update and not self._confirm_replace():
             event.ignore()
             return
         self.update_timer.stop()
