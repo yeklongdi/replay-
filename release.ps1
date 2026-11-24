@@ -17,6 +17,7 @@ $tag = "v$Version"
 $versionFile = Join-Path $PSScriptRoot 'replaystudio\version.py'
 $outputDir = Join-Path $PSScriptRoot '发布'
 $zipPath = Join-Path $outputDir '回放工坊-Windows-x64.zip'
+$releaseZipPath = Join-Path $outputDir 'ReplayStudio-Windows-x64.zip'
 $checksumPath = Join-Path $outputDir 'SHA256SUMS.txt'
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -63,6 +64,10 @@ if (-not (Test-Path -LiteralPath $zipPath -PathType Leaf) -or -not (Test-Path -L
     throw '缺少打包产物或 SHA256SUMS.txt。'
 }
 
+Copy-Item -LiteralPath $zipPath -Destination $releaseZipPath -Force
+$releaseHash = (Get-FileHash -LiteralPath $releaseZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+[IO.File]::WriteAllText($checksumPath, "$releaseHash  ReplayStudio-Windows-x64.zip`n", [Text.UTF8Encoding]::new($false))
+
 git add -- replaystudio/version.py
 $stagedDiff = git diff --cached --name-only
 if ($stagedDiff) {
@@ -73,12 +78,15 @@ if ($stagedDiff) {
 git tag -a $tag -m "回放工坊 $tag"
 if ($LASTEXITCODE -ne 0) { throw '创建标签失败。' }
 
-git push origin HEAD
+$env:GIT_TERMINAL_PROMPT = '0'
+$env:GCM_INTERACTIVE = 'never'
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin HEAD
 if ($LASTEXITCODE -ne 0) { throw '推送分支失败。' }
-git push origin $tag
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin $tag
 if ($LASTEXITCODE -ne 0) { throw '推送标签失败。' }
 
-gh release create $tag $zipPath $checksumPath --title "回放工坊 $tag" --notes $Notes
+gh release create $tag $releaseZipPath $checksumPath --title "回放工坊 $tag" --notes $Notes
 if ($LASTEXITCODE -ne 0) { throw '创建 GitHub Release 失败。' }
+Remove-Item -LiteralPath $releaseZipPath -Force -ErrorAction SilentlyContinue
 
 Write-Host "已成功发布回放工坊 $tag 到 GitHub Releases。"

@@ -7,7 +7,7 @@
 无需安装 Python 或配置环境，直接下载便携版即可使用（已内置中文字体、预览音频组件与 FFmpeg 导出编码器）：
 
 1. 打开本仓库的 [Releases 发布页](https://github.com/yeklongdi/replay-/releases/latest)。
-2. 在页面下方的 **Assets** 附件列表中，点击下载 **`回放工坊-Windows-x64.zip`**。
+2. 在页面下方的 **Assets** 附件列表中，点击下载 **`ReplayStudio-Windows-x64.zip`**。
 3. 将压缩包**完整解压**到任意文件夹（注意：不要直接在压缩包预览窗口里双击运行，请把 `ReplayStudio.exe` 与同目录的 `_internal` 文件夹放在一起）。
 4. 双击解压后的 **`ReplayStudio.exe`** 即可启动。
 5. 后续有新版本时，无需重新找网页，直接在软件左上角点 **「设置 ▾ → 检查更新」** 即可一键下载校验并自动替换重启。
