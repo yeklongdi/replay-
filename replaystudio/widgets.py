@@ -185,7 +185,7 @@ class CueModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.ToolTipRole:
             if cue.stamp:
                 return cue.stamp
-            return marker or "补写台词"
+            return marker or ("无时间记录" if cue.sources else "补写台词")
         if role == Qt.ItemDataRole.ForegroundRole:
             palette = QApplication.palette()
             if cue.hidden or (cue.is_text and not cue.text.strip()):

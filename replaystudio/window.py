@@ -27,7 +27,7 @@ from .version import APP_VERSION
 from .voice_editor import VoiceEditor
 from .widgets import CueFilter, CueModel, Stage, app_icon, button, panel, timecode
 
-LOG_SUFFIXES = (".txt", ".docx")
+LOG_SUFFIXES = (".txt", ".docx", ".doc")
 LOG_FILES = "跑团日志 (" + " ".join(f"*{suffix}" for suffix in LOG_SUFFIXES) + ")"
 PROJECT_FILES = "Replay 工程 (*.replay)"
 
@@ -372,7 +372,7 @@ class MainWindow(QMainWindow):
         title = label("拖入跑团日志", "panelTitle")
         title.setStyleSheet("font-size: 20px;")
         empty_layout.addWidget(title, 0, Qt.AlignmentFlag.AlignHCenter)
-        empty_layout.addWidget(label("UTF-8 TXT、DOCX 日志或 .replay 工程", "muted"),
+        empty_layout.addWidget(label("UTF-8 TXT、DOCX、DOC 日志或 .replay 工程", "muted"),
                                0, Qt.AlignmentFlag.AlignHCenter)
         self.choose_log_button = button("选择日志文件", "accent")
         self.choose_log_button.clicked.connect(self._choose_log)
@@ -491,7 +491,7 @@ class MainWindow(QMainWindow):
                 project = open_project(filename, Path(workspace.name))
                 project_file = filename
             else:
-                raise ReplayError("请选择 UTF-8 TXT、DOCX 跑团日志或 .replay 工程。")
+                raise ReplayError("请选择 UTF-8 TXT、DOCX、DOC 跑团日志或 .replay 工程。")
             initialize_media(project)
         except (OSError, ReplayError) as error:
             workspace.cleanup()
@@ -517,7 +517,7 @@ class MainWindow(QMainWindow):
             self._period_summary = f"{len(sessions)} 场"
         else:
             period_label = "不限日期"
-            dates = sorted({record.stamp[:10] for record in project.messages})
+            dates = sorted({record.stamp[:10] for record in project.messages if len(record.stamp) >= 10})
             periods = [(date, date) for date in dates]
             self._period_summary = f"{len(dates)} 个日期"
         self._resetting = True
