@@ -508,6 +508,7 @@ def launch_windows_updater(
     staging_dir: Path,
     wait_pid: int | None = None,
     reopen_file: Path | None = None,
+    no_relaunch: bool = False,
 ) -> subprocess.Popen:
     script = write_updater_script(staging_dir)
     pid = os.getpid() if wait_pid is None else wait_pid
@@ -525,11 +526,13 @@ def launch_windows_updater(
     ]
     if reopen_file and reopen_file.is_file():
         command.extend(["-ReopenFile", str(reopen_file)])
+    if no_relaunch:
+        command.append("-NoRelaunch")
     flags = 0
     if sys.platform == "win32":
+        # Do not combine DETACHED_PROCESS with CREATE_NO_WINDOW; Windows PowerShell 5.1 exits silently without a console.
         flags = (
             getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            | getattr(subprocess, "DETACHED_PROCESS", 0)
             | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
         )
     return subprocess.Popen(

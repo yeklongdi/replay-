@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import zipfile
 from dataclasses import replace
@@ -25,7 +26,8 @@ from replaystudio.model import ReplayError
 from replaystudio.update_dialog import UpdateDialog
 from replaystudio.updater import (
     InstallTarget, ReleaseInfo, UpdateCancelled, detect_install_target, download_release,
-    fetch_latest_release, is_newer, stage_update_bundle, validate_url, write_updater_script,
+    fetch_latest_release, is_newer, launch_windows_updater, stage_update_bundle, validate_url,
+    write_updater_script,
 )
 from replaystudio.version import APP_VERSION, CHECKSUM_ASSET_NAME, PORTABLE_ASSET_NAME
 from replaystudio.window import MainWindow
@@ -246,6 +248,55 @@ class UpdaterTests(unittest.TestCase):
             self.assertEqual((target / "ReplayStudio.exe").read_bytes(), b"NEW-EXE")
             self.assertEqual((target / "_internal" / "new.dll").read_bytes(), b"NEW-DLL")
             self.assertEqual((target / "我的跑团.replay").read_bytes(), b"USER-PROJECT")
+            self.assertEqual(list(target.glob(".update-backup-*")), [])
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows windowed updater test")
+    def test_launch_windows_updater_succeeds_from_windowed_process(self):
+        pythonw = Path(sys.executable).with_name("pythonw.exe")
+        if not pythonw.is_file():
+            self.skipTest("需要 pythonw.exe")
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            target = root / "便携版 目录"
+            (target / "_internal").mkdir(parents=True)
+            (target / "ReplayStudio.exe").write_bytes(b"OLD-EXE")
+            (target / "_internal" / "old.dll").write_bytes(b"OLD-DLL")
+            (target / "我的跑团.replay").write_bytes(b"USER-PROJECT")
+
+            staging = root / "staging"
+            source = staging / "extracted" / "ReplayStudio"
+            (source / "_internal").mkdir(parents=True)
+            (source / "ReplayStudio.exe").write_bytes(b"NEW-EXE")
+            (source / "_internal" / "new.dll").write_bytes(b"NEW-DLL")
+
+            launcher = (
+                "import os, sys\n"
+                f"sys.path.insert(0, {str(repo_root)!r})\n"
+                "from pathlib import Path\n"
+                "from replaystudio.updater import launch_windows_updater\n"
+                "launch_windows_updater(\n"
+                f"    target_dir=Path({str(target)!r}),\n"
+                f"    source_dir=Path({str(source)!r}),\n"
+                f"    staging_dir=Path({str(staging)!r}),\n"
+                "    wait_pid=os.getpid(),\n"
+                "    no_relaunch=True,\n"
+                ")\n"
+            )
+            subprocess.run([str(pythonw), "-c", launcher], check=True, timeout=10)
+
+            deadline = time.monotonic() + 15.0
+            while time.monotonic() < deadline:
+                exe = target / "ReplayStudio.exe"
+                if exe.is_file() and exe.read_bytes() == b"NEW-EXE" and not staging.exists():
+                    break
+                time.sleep(0.1)
+
+            self.assertEqual((target / "ReplayStudio.exe").read_bytes(), b"NEW-EXE")
+            self.assertEqual((target / "_internal" / "new.dll").read_bytes(), b"NEW-DLL")
+            self.assertFalse((target / "_internal" / "old.dll").exists())
+            self.assertEqual((target / "我的跑团.replay").read_bytes(), b"USER-PROJECT")
+            self.assertFalse(staging.exists())
             self.assertEqual(list(target.glob(".update-backup-*")), [])
 
     def test_settings_menu_entry_and_update_dialog_gui_flow(self):
