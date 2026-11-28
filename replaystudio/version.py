@@ -1,6 +1,6 @@
 """回放工坊版本与发布源配置。"""
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 GITHUB_REPO = "yeklongdi/replay-"
 PORTABLE_ASSET_NAME = "回放工坊-Windows-x64.zip"
 CHECKSUM_ASSET_NAME = "SHA256SUMS.txt"
